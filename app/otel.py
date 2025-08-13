@@ -1,39 +1,34 @@
+
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
-from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-from fastapi import FastAPI
 
 import os
 
-# Variables de entorno (se deben definir en Koyeb o en tu entorno local)
-GRAFANA_CLOUD_API_TOKEN = os.getenv("GRAFANA_CLOUD_API_TOKEN")
-OTEL_EXPORTER_OTLP_TRACES_ENDPOINT = os.getenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT")
-SERVICE_NAME = os.getenv("SERVICE_NAME", "cicd-demo")
+# Variables desde Koyeb
+grafana_token = os.getenv("GRAFANA_CLOUD_API_TOKEN")
+otlp_endpoint = os.getenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT")
+service_name = os.getenv("SERVICE_NAME", "cicd-demo")
 
-# Configuración del proveedor de trazas
-trace.set_tracer_provider(TracerProvider())
-tracer = trace.get_tracer(__name__)
+# Configuración de recursos
+resource = Resource.create({
+    "service.name": service_name
+})
 
-# Configuración del exportador OTLP
+# Proveedor de trazas
+trace.set_tracer_provider(TracerProvider(resource=resource))
+
+# Exportador OTLP (HTTP/protobuf)
 otlp_exporter = OTLPSpanExporter(
-    endpoint=OTEL_EXPORTER_OTLP_TRACES_ENDPOINT,
+    endpoint=otlp_endpoint,
     headers={
-        "Authorization": f"Bearer {GRAFANA_CLOUD_API_TOKEN}"
+        "Authorization": f"Bearer {grafana_token}"
     }
 )
 
+# Procesador de spans
 trace.get_tracer_provider().add_span_processor(
     BatchSpanProcessor(otlp_exporter)
 )
-
-# Creación de la app FastAPI
-app = FastAPI()
-
-# Instrumentación automática de FastAPI
-FastAPIInstrumentor.instrument_app(app)
-
-@app.get("/")
-def read_root():
-    return {"message": "Hello from FastAPI + OpenTelemetry + Grafana!"}

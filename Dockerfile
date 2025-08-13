@@ -1,20 +1,15 @@
 FROM python:3.12-slim
 
-# Directorio de trabajo dentro del contenedor
+# Instalar certificados para HTTPS
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
-
-# Copiar requirements primero (mejora la caché)
-COPY app/requirements.txt /app/
-
-# Instalar dependencias
+COPY app/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copiar el resto del código
-COPY app/ /app/app/
+COPY app/ .
 
-# Variables de entorno por defecto
-ENV PORT=8080
-ENV SERVICE_NAME=nublibar-demo
+EXPOSE 8080
 
-# Ejecutar inicialización de OTEL y levantar la app
-CMD python -c "import app.otel" && uvicorn app.server:app --host 0.0.0.0 --port ${PORT}
+CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8080"]
